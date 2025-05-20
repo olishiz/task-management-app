@@ -1,0 +1,154 @@
+{{- if .Values.database.enabled -}}
+---
+# PostgreSQL Persistent Volume Claim
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ .Values.database.name }}-pvc
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: database
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- if .Values.database.persistence.storageClass }}
+  storageClassName: {{ .Values.database.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.database.persistence.size }}
+---
+# PostgreSQL ConfigMap for environment variables
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.database.name }}-config
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: database
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+data:
+  {{- range $key, $value := .Values.database.env }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+---
+{{- if .Values.database.secret.enabled -}}
+# PostgreSQL Secret for sensitive data
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.database.name }}-secret
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: database
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+type: Opaque
+data:
+  {{- range $key, $value := .Values.database.secret }}
+  {{- if ne $key "enabled" }}
+  {{ $key }}: {{ $value | b64enc }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.database.name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: database
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ .Values.database.name }}
+      app.kubernetes.io/name: {{ .Chart.Name }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.database.name }}
+        app.kubernetes.io/name: {{ .Chart.Name }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: database
+    spec:
+      containers:
+      - name: {{ .Values.database.name }}
+        image: "{{ .Values.database.image.repository }}:{{ .Values.database.image.tag }}"
+        imagePullPolicy: {{ .Values.database.image.pullPolicy }}
+        ports:
+        - containerPort: {{ .Values.database.service.port }}
+        envFrom:
+        - configMapRef:
+            name: {{ .Values.database.name }}-config
+        {{- if .Values.database.secret.enabled }}
+        - secretRef:
+            name: {{ .Values.database.name }}-secret
+        {{- end }}
+        volumeMounts:
+        - name: {{ .Values.database.name }}-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          {{- toYaml .Values.database.resources | nindent 10 }}
+        readinessProbe:
+          exec:
+            command:
+            {{- range .Values.database.probes.readiness.command | split " " }}
+            - {{ . }}
+            {{- end }}
+          initialDelaySeconds: {{ .Values.database.probes.readiness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.database.probes.readiness.periodSeconds }}
+        livenessProbe:
+          exec:
+            command:
+            {{- range .Values.database.probes.liveness.command | split " " }}
+            - {{ . }}
+            {{- end }}
+          initialDelaySeconds: {{ .Values.database.probes.liveness.initialDelaySeconds }}
+          periodSeconds: {{ .Values.database.probes.liveness.periodSeconds }}
+      volumes:
+      - name: {{ .Values.database.name }}-storage
+        persistentVolumeClaim:
+          claimName: {{ .Values.database.name }}-pvc
+---
+# PostgreSQL Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.database.name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: {{ .Values.database.name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: database
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version }}
+spec:
+  ports:
+  - port: {{ .Values.database.service.port }}
+    targetPort: {{ .Values.database.service.port }}
+  selector:
+    app: {{ .Values.database.name }}
+    app.kubernetes.io/name: {{ .Chart.Name }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+  type: ClusterIP
+{{- end }}

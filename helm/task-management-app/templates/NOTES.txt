@@ -1,0 +1,43 @@
+Thank you for installing {{ .Chart.Name }}.
+
+Your release is named {{ .Release.Name }}.
+
+To learn more about the release, try:
+
+  $ helm status {{ .Release.Name }}
+  $ helm get all {{ .Release.Name }}
+
+{{- if .Values.ingress.enabled }}
+You can access the application at:
+{{- range .Values.ingress.hosts }}
+  http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+
+{{- else }}
+To access the application, you'll need to set up port forwarding to the services:
+
+For the frontend:
+  kubectl port-forward -n {{ .Values.namespace.name }} svc/{{ .Values.frontend.name }} 8080:{{ .Values.frontend.service.port }}
+
+Then access the frontend at: http://localhost:8080
+
+For the backend API:
+  kubectl port-forward -n {{ .Values.namespace.name }} svc/{{ .Values.backend.name }} 3000:{{ .Values.backend.service.port }}
+
+Then access the API at: http://localhost:3000
+{{- end }}
+
+{{- if .Values.database.enabled }}
+The PostgreSQL database is running as a service named '{{ .Values.database.name }}' in the namespace '{{ .Values.namespace.name }}'.
+
+To connect to the database from another pod in the cluster:
+  Host: {{ .Values.database.name }}.{{ .Values.namespace.name }}.svc.cluster.local
+  Port: {{ .Values.database.service.port }}
+  Database: {{ .Values.database.env.POSTGRES_DB }}
+  Username: {{ .Values.database.secret.POSTGRES_USER }}
+  Password: {{ .Values.database.secret.POSTGRES_PASSWORD }}
+{{- else }}
+You are using an external database. Make sure it is accessible from the cluster.
+{{- end }}
+
+For more information on how to use the chart, please refer to the README.

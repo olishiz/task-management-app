@@ -1,0 +1,159 @@
+# Default values for task-management-app.
+# This is a YAML-formatted file.
+
+# Global settings
+global:
+  # Environment (dev, staging, prod)
+  environment: prod
+  # Domain name for ingress
+  domain: task-app.example.com
+
+# Namespace configuration
+namespace:
+  create: true
+  name: task-management
+
+# Image configuration
+image:
+  registry: oliver.azurecr.io
+  pullPolicy: IfNotPresent
+  # If you're using ACR, GCR, or ECR and need credentials:
+  # pullSecrets:
+  #   - name: registry-secret
+
+# Frontend configuration
+frontend:
+  name: frontend
+  replicaCount: 2
+  image:
+    repository: task-app-frontend
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+  livenessProbe:
+    path: /
+    initialDelaySeconds: 20
+    periodSeconds: 15
+  readinessProbe:
+    path: /
+    initialDelaySeconds: 10
+    periodSeconds: 5
+  env:
+    VITE_API_URL: http://backend/tasks
+
+# Backend configuration
+backend:
+  name: backend
+  replicaCount: 2
+  image:
+    repository: task-app-backend
+    tag: latest
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  livenessProbe:
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 20
+  readinessProbe:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 10
+  startupProbe:
+    path: /health
+    failureThreshold: 30
+    periodSeconds: 10
+  env:
+    NODE_ENV: production
+    PORT: "3000"
+    # Database URL will be set from database section
+  command:
+    - /bin/sh
+    - -c
+  args:
+    - npx prisma migrate deploy && node dist/main
+
+# Database configuration
+database:
+  name: postgres
+  enabled: true
+  image:
+    repository: postgres
+    tag: 16-alpine
+    pullPolicy: IfNotPresent
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  env:
+    POSTGRES_DB: taskdb
+  secret:
+    enabled: true
+    # These will be base64 encoded automatically
+    POSTGRES_USER: postgres
+    POSTGRES_PASSWORD: postgres
+  probes:
+    liveness:
+      command: pg_isready -U postgres
+      initialDelaySeconds: 30
+      periodSeconds: 20
+    readiness:
+      command: pg_isready -U postgres
+      initialDelaySeconds: 5
+      periodSeconds: 10
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+  hosts:
+    - host: task-app.example.com
+      paths:
+        - path: /api(/|$)(.*)
+          pathType: Prefix
+          service: backend
+          port: 80
+        - path: /(.*)
+          pathType: Prefix
+          service: frontend
+          port: 80
+  tls: []
+  # - secretName: task-app-tls-secret
+  #   hosts:
+  #     - task-app.example.com
+
+# Metrics/monitoring settings
+metrics:
+  enabled: false
+  serviceMonitor:
+    enabled: false

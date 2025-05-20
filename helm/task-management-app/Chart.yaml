@@ -1,0 +1,22 @@
+apiVersion: v2
+name: task-management-app
+description: A Helm chart for Task Management Application
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+
+# List of maintainers
+maintainers:
+  - name: Oliver Sim
+    email: oliversim@example.com
+
+# Keywords for this application
+keywords:
+  - task
+  - management
+  - nestjs
+  - react
+  - postgresql
+
+# Icon URL (if available)
+# icon: https://example.com/icon.png
