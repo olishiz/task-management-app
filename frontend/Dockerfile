@@ -1,36 +1,24 @@
-# Multi-stage build for React frontend
+# Development-focused Dockerfile for React frontend with Vite
 
-# Build stage
-FROM node:20-slim AS build
+FROM node:20-slim
 
 WORKDIR /app
 
-# Copy package files and install dependencies
+# Copy package files
 COPY package*.json ./
+
+# Install dependencies
 RUN npm ci
 
 # Copy application code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Expose Vite dev server port
+EXPOSE 5173
 
-# Production stage using Nginx to serve static files
-FROM nginx:stable-alpine AS production
+# Health check for dev server
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD wget --no-verbose --tries=1 --spider http://localhost:5173/ || exit 1
 
-# Copy custom nginx configuration
-COPY --from=build /app/dist /usr/share/nginx/html
-
-# Copy Nginx configuration
-RUN rm /etc/nginx/conf.d/default.conf
-COPY nginx.conf /etc/nginx/conf.d/
-
-# Expose the port
-EXPOSE 80
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
-
-# Start Nginx server
-CMD ["nginx", "-g", "daemon off;"]
+# Start Vite dev server on all interfaces (0.0.0.0)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

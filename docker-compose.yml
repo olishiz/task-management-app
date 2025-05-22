@@ -7,25 +7,20 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: task-app-backend
-    restart: unless-stopped
+    restart: always
     environment:
-      - DATABASE_URL=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/taskdb?retryWrites=true&w=majority
-      - NODE_ENV=development # Set to development
+      - NODE_ENV=production
       - PORT=3000
     ports:
       - "3000:3000"
     networks:
       - app-network
-    volumes:
-      - ./backend:/app # Mount local backend code to /app in container
     healthcheck:
-      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health" ]
       interval: 20s
       timeout: 10s
       retries: 3
       start_period: 30s
-    command: >
-      sh -c "npm run start:dev" # Use NestJS dev mode with watch
 
   # React Frontend
   frontend:
@@ -41,13 +36,12 @@ services:
       - "3001:5173" # Vite dev server runs on 5173 by default
     networks:
       - app-network
+    volumes:
+      - ./frontend:/app  # Mount source code for hot reloading
+      - /app/node_modules # Preserve container node_modules
     environment:
       - VITE_API_URL=http://backend:3000/tasks # Use container name for service-to-service communication
       - CHOKIDAR_USEPOLLING=true # Enable polling for file changes in Docker
-    volumes:
-      - ./frontend:/app # Mount local frontend code to /app in container
-    command: >
-      sh -c "npm run dev" # Run Vite dev server
 
 networks:
   app-network:
