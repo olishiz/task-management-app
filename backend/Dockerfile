@@ -15,9 +15,6 @@ RUN npm ci
 # Copy application code
 COPY . .
 
-# Generate Prisma client
-RUN npx prisma generate
-
 # Build the application
 RUN npm run build
 
@@ -38,15 +35,8 @@ COPY package*.json ./
 # Install only production dependencies
 RUN npm ci --omit=dev
 
-# Copy Prisma schema and migrations for runtime
-COPY prisma ./prisma/
-
 # Copy built application from build stage
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/node_modules/.prisma ./node_modules/.prisma
-
-# Generate Prisma client in production
-RUN npx prisma generate
 
 # Create a non-root user to run the application
 RUN useradd -m appuser

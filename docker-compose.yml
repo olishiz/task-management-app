@@ -1,28 +1,6 @@
 version: '3.8'
 
 services:
-  # PostgreSQL Database
-  db:
-    image: postgres:16-alpine
-    container_name: task-app-db
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: taskdb
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - app-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
   # NestJS Backend
   backend:
     build:
@@ -30,17 +8,16 @@ services:
       dockerfile: Dockerfile
     container_name: task-app-backend
     restart: unless-stopped
-    depends_on:
-      db:
-        condition: service_healthy
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/taskdb?schema=public
-      - NODE_ENV=production
+      - DATABASE_URL=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/taskdb?retryWrites=true&w=majority
+      - NODE_ENV=development # Set to development
       - PORT=3000
     ports:
       - "3000:3000"
     networks:
       - app-network
+    volumes:
+      - ./backend:/app # Mount local backend code to /app in container
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health"]
       interval: 20s
@@ -48,8 +25,7 @@ services:
       retries: 3
       start_period: 30s
     command: >
-      sh -c "npx prisma migrate deploy && 
-             node dist/main"
+      sh -c "npm run start:dev" # Use NestJS dev mode with watch
 
   # React Frontend
   frontend:
@@ -62,16 +38,17 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "3001:80"
+      - "3001:5173" # Vite dev server runs on 5173 by default
     networks:
       - app-network
     environment:
-      - VITE_API_URL=http://localhost:3000/tasks
+      - VITE_API_URL=http://backend:3000/tasks # Use container name for service-to-service communication
+      - CHOKIDAR_USEPOLLING=true # Enable polling for file changes in Docker
+    volumes:
+      - ./frontend:/app # Mount local frontend code to /app in container
+    command: >
+      sh -c "npm run dev" # Run Vite dev server
 
 networks:
   app-network:
     driver: bridge
-
-volumes:
-  postgres-data:
-    driver: local

@@ -1,23 +1,31 @@
-import { Field, ObjectType } from '@nestjs/graphql';
-import { Status } from '@prisma/client';
+import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
+import { Document, Types } from "mongoose";
 
-@ObjectType()
-export class Task {
-  @Field()
-  id: string;
+export enum Status {
+  PENDING = "PENDING",
+  IN_PROGRESS = "IN_PROGRESS",
+  COMPLETED = "COMPLETED",
+}
 
-  @Field()
+@Schema({ timestamps: { createdAt: "createdAt" } })
+export class Task extends Document {
+  @Prop({ type: String, default: () => new Types.ObjectId().toHexString() })
+  _id: string;
+
+  @Prop({ required: true })
   title: string;
 
-  @Field()
+  @Prop({ required: true })
   description: string;
 
-  @Field()
+  @Prop({ required: true })
   assignedTo: string;
 
-  @Field(() => Status) // Use Prisma's Status enum
+  @Prop({ type: String, enum: Status, default: Status.PENDING })
   status: Status;
 
-  @Field()
+  @Prop({ type: Date, default: Date.now })
   createdAt: Date;
 }
+
+export const TaskSchema = SchemaFactory.createForClass(Task);

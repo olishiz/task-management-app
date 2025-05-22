@@ -3,67 +3,58 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   Post,
   Put,
-} from '@nestjs/common';
-import { TasksService } from './tasks.service';
-import { Task } from './models/task.model';
-import { Status } from '@prisma/client';
+} from "@nestjs/common";
+import { TasksService } from "./tasks.service";
+import { Status, Task } from "./models/task.model";
 
-@Controller('tasks')
+@Controller("tasks")
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}
 
-  @Get()
-  async getAllTasks(): Promise<Task[]> {
-    return this.tasksService.getAllTasks();
-  }
-
-  @Get(':id')
-  async getTask(@Param('id') id: string): Promise<Task> {
-    return this.tasksService.getTask(id);
-  }
-
   @Post()
-  async createTask(
-    @Body('title') title: string,
-    @Body('description') description: string,
-    @Body('assignedTo') assignedTo: string,
+  async create(
+    @Body()
+    createTaskDto: {
+      title: string;
+      description: string;
+      assignedTo: string;
+    },
   ): Promise<Task> {
-    return this.tasksService.createTask(title, description, assignedTo);
+    return this.tasksService.create(createTaskDto);
   }
 
-  @Put(':id')
-  async updateTask(
-    @Param('id') id: string,
-    @Body('title') title?: string,
-    @Body('description') description?: string,
-    @Body('assignedTo') assignedTo?: string,
-    @Body('status') status?: string, // Accept status as a string
+  @Get()
+  async findAll(): Promise<Task[]> {
+    return this.tasksService.findAll();
+  }
+
+  @Get(":id")
+  async findOne(@Param("id") id: string): Promise<Task> {
+    return this.tasksService.findOne(id);
+  }
+
+  @Put(":id")
+  async update(
+    @Param("id") id: string,
+    @Body()
+    updateTaskDto: Partial<{
+      title: string;
+      description: string;
+      assignedTo: string;
+      status: Status;
+    }>,
   ): Promise<Task> {
-    // Convert status string to Prisma Enum
-    const mappedStatus = status ? this.mapStringToStatus(status) : undefined;
-
-    return this.tasksService.updateTask(id, {
-      title,
-      description,
-      assignedTo,
-      status: mappedStatus, // Pass the mapped status
-    });
+    return this.tasksService.update(id, updateTaskDto);
   }
 
-  @Delete(':id')
-  async deleteTask(@Param('id') id: string): Promise<Task> {
-    return this.tasksService.deleteTask(id);
-  }
-
-  // Helper function to map status string to Prisma Status Enum
-  private mapStringToStatus(status: string): Status | undefined {
-    const upperStatus = status.toUpperCase();
-    if (Object.values(Status).includes(upperStatus as Status)) {
-      return upperStatus as Status;
-    }
-    return undefined; // Return undefined if status is invalid
+  @Delete(":id")
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remove(@Param("id") id: string): Promise<void> {
+    return this.tasksService.remove(id);
   }
 }

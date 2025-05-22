@@ -19,7 +19,7 @@ metadata:
   name: postgres-config
   namespace: task-management
 data:
-  POSTGRES_DB: taskdb
+  POSTGRES_DB: "taskdb"
 ---
 # PostgreSQL Secret for sensitive data
 apiVersion: v1
@@ -29,9 +29,8 @@ metadata:
   namespace: task-management
 type: Opaque
 data:
-  # Values are base64 encoded (postgres:postgres)
-  POSTGRES_USER: cG9zdGdyZXM=
-  POSTGRES_PASSWORD: cG9zdGdyZXM=
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
 ---
 # PostgreSQL Deployment
 apiVersion: apps/v1
